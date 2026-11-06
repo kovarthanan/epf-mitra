@@ -4,9 +4,9 @@
 |---|---|
 | Project | EPF Mitra |
 | Owner | Kovarthanan Murugan |
-| Version | 0.1 (draft) |
+| Version | 0.2 |
 | Date | 6 Nov 2026 |
-| Status | Draft for review |
+| Status | Reviewed |
 
 ---
 
@@ -60,13 +60,17 @@ As a result, people rely on guesswork, unofficial sources, or paid agents, and s
 
 ### In scope (v1)
 
-- Questions about EPF and EPS, answered from official EPFO documents
-- A citation (document title and page) with every answer
+- Questions about EPF and EPS, answered from official EPFO documents:
+  - Core scheme documents in their current amended form: EPF Scheme, EPS 1995, EDLI Scheme
+  - EPFO circulars and FAQs published from **2000 onwards**
+- A citation (document title, page and **rule date**) with every answer
 - Withdrawal eligibility checker (rule-based form)
 - English language
-- Public web demo with usage limits
+- Public web demo limited to **10 questions per user per day**
 
 ### Out of scope (v1)
+
+- Circulars published before 2000
 
 - Logging into EPFO or accessing anyone's personal PF account
 - Filing claims or submitting forms on a user's behalf
@@ -92,7 +96,9 @@ As a result, people rely on guesswork, unofficial sources, or paid agents, and s
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Wrong or outdated answer | Users make bad financial decisions | Citations on every answer, evaluation test set, disclaimer, "verify on epfindia.gov.in" |
+| Old circulars conflict with newer rules (26 years of documents) | Answer is based on a superseded rule | Store each document's date; rank newer documents higher; tell the LLM to prefer the latest rule; show the rule date in every answer |
 | Rules change after documents are indexed | Answers become outdated | Store document dates; show "as of" date; re-ingest new circulars |
+| Large document volume (2000 onwards) | Slow ingestion, VPS disk and memory pressure | Ingest in batches; skip duplicates by hash; store vectors on disk |
 | API costs grow with traffic | Exceeds budget | Answer cache, per-user and daily limits, hard spending cap |
 | Prompt injection or misuse | Off-topic or harmful output | Guardrails and topic restriction |
 | Scanned or messy PDFs | Missing or wrong text | OCR, parsing checks, logging of failed documents |
@@ -104,8 +110,10 @@ As a result, people rely on guesswork, unofficial sources, or paid agents, and s
 | Product owner, architect, developer | Kovarthanan Murugan |
 | End users | Salaried employees, HR staff |
 
-## 11. Open questions
+## 11. Decisions
 
-- [ ] Which EPFO documents are in scope for v1 (circulars from which year onwards)?
-- [ ] Should answers show the date of the rule they are based on?
-- [ ] What is the daily question limit per user for the public demo?
+| # | Question | Decision | Date |
+|---|---|---|---|
+| 1 | Which EPFO documents are in scope for v1? | Core scheme documents (current amended versions) plus circulars and FAQs from 2000 onwards | 6 Nov 2026 |
+| 2 | Should answers show the date of the rule they are based on? | Yes, every answer shows the rule date | 6 Nov 2026 |
+| 3 | Daily question limit per user for the public demo? | 10 questions per user per day | 6 Nov 2026 |
