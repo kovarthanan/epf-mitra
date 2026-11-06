@@ -1,0 +1,45 @@
+# --- Secrets (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Node / Angular ---
+node_modules/
+ui/dist/
+ui/.angular/
+npm-debug.log*
+
+# --- Data (downloaded and generated; too large for Git) ---
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+qdrant_storage/
+*.faiss
+*.sqlite
+*.db
+
+# --- Models and caches ---
+.cache/
+models/
+.fastembed_cache/
+
+# --- Logs and OS / editor files ---
+logs/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
