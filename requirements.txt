@@ -1,0 +1,10 @@
+# ingestion
+requests
+beautifulsoup4
+pymupdf
+pytesseract
+pillow
+
+# retrieval
+chromadb
+sentence-transformers

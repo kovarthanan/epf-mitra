@@ -1,45 +1,39 @@
-# --- Secrets (never commit) ---
-.env
-.env.*
-!.env.example
-*.pem
-*.key
+# --- data (regenerate with the scripts; only the manifest/reports are tracked) ---
+data/raw/
+data/text/
+data/chroma/
+data/chunks.jsonl
+data/ocr_report.csv
+*.pdf
 
-# --- Python ---
+# scratch files from site inspection
+inspect.txt
+card.txt
+scripts/inspect_*.py
+scripts/test_ua.py
+tools/
+
+# --- python ---
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
 *.egg-info/
+.pytest_cache/
 
-# --- Node / Angular ---
-node_modules/
-ui/dist/
-ui/.angular/
-npm-debug.log*
+# --- secrets / env ---
+.env
+.env.*
+!.env.example
 
-# --- Data (downloaded and generated; too large for Git) ---
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
-qdrant_storage/
-*.faiss
-*.sqlite
-*.db
-
-# --- Models and caches ---
+# --- models / caches ---
 .cache/
 models/
-.fastembed_cache/
+*.bin
+*.safetensors
 
-# --- Logs and OS / editor files ---
-logs/
-*.log
-.DS_Store
-Thumbs.db
+# --- editors / os ---
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
