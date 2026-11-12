@@ -26,6 +26,7 @@ def main():
     ap.add_argument("--db", default="data/chroma")
     ap.add_argument("--reset", action="store_true")
     ap.add_argument("--batch", type=int, default=64)
+    ap.add_argument("--docs", help="file with doc_ids (one per line): delete their chunks, then re-add")
     args = ap.parse_args()
 
     client = chromadb.PersistentClient(path=args.db)
@@ -39,6 +40,11 @@ def main():
                                           metadata={"hnsw:space": "cosine"})
 
     rows = [json.loads(l) for l in Path(args.chunks).read_text(encoding="utf-8").splitlines() if l.strip()]
+    if args.docs:
+        doc_ids = [d.strip() for d in Path(args.docs).read_text(encoding="utf-8").splitlines() if d.strip()]
+        for d in doc_ids:
+            col.delete(where={"doc_id": d})
+        print(f"Deleted chunks of {len(doc_ids)} docs; re-adding from chunks.jsonl")
     existing = set(col.get(include=[])["ids"]) if col.count() else set()
     todo = [r for r in rows if r["chunk_id"] not in existing]
     print(f"{len(rows)} chunks in file, {len(existing)} already indexed, {len(todo)} to add")

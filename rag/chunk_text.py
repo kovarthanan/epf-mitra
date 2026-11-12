@@ -113,10 +113,15 @@ def main():
     args = ap.parse_args()
 
     files = sorted(Path(args.text).glob("*.json"))
+    exclude_path = Path("data/exclude_docs.txt")
+    excluded = set(exclude_path.read_text(encoding="utf-8").split()) if exclude_path.exists() else set()
     total, docs, skipped = 0, 0, 0
     with Path(args.out).open("w", encoding="utf-8") as out:
         for f in files:
             d = json.loads(f.read_text(encoding="utf-8"))
+            if d["doc_id"] in excluded:
+                skipped += 1
+                continue
             if d.get("likely_scanned") and not d.get("ocr_applied"):
                 skipped += 1
                 continue
