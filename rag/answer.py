@@ -44,6 +44,7 @@ Rules:
 5. Be concise: 3-6 sentences for a simple question, short bullet points if there are steps or conditions. Plain English, no legal jargon unless you explain it.
 6. Never give personal financial or legal advice. Describe what the rule says; the user decides.
 7. End with one line: "Note: This is not official EPFO advice. Verify with your regional PF office."
+8. Never say “current” or “latest”. Say “According to the most recent document I have (dated X), …” and add: “Newer rules may exist; check epfindia.gov.in.”
 """
 
 

@@ -1,6 +1,7 @@
 """
 EPF Mitra - hybrid retrieval: BM25 + vector search, fused with reciprocal rank fusion,
-mild recency boost, optional FlashRank re-ranking, one chunk per document.
+mild recency boost, optional FlashRank re-ranking, one chunk per document,
+and "newest version wins" for time-sensitive questions (current / latest / now ...).
 
 Usage:
     python rag/retrieve.py                           # built-in test questions
@@ -36,7 +37,19 @@ TEST_QUESTIONS = [
     "How do I de-link a wrong member ID from my UAN?",
     "What is the Centralised Pension Payment System?",
     "Do I need to upload a cancelled cheque for a PF claim?",
+    "What is the current EPF interest rate?",
 ]
+
+# Questions about "now" should see only the newest document of a series
+# (e.g. yearly "Declaration of Rate of Interest" circulars). History questions keep all years.
+TIME_WORDS = re.compile(r"\b(current|latest|now|today|present|recent|this year)\b", re.I)
+SERIES_WORDS = 6      # first N words of a normalised title identify a document series
+
+
+def series_key(title: str) -> str:
+    """'Declaration of Rate of Interest ... 2017-18' -> 'declaration of rate of interest for'"""
+    words = re.sub(r"[^a-z ]", " ", title.lower()).split()
+    return " ".join(words[:SERIES_WORDS])
 
 
 def tokenize(text: str) -> list[str]:
@@ -94,6 +107,17 @@ class Retriever:
                 break
         return out
 
+    def newest_in_series(self, order: list[str]) -> list[str]:
+        """Keep, per document series, only the chunks of its newest-dated document (rank order kept)."""
+        best: dict[str, str] = {}
+        for cid in order:
+            c = self.chunks[cid]
+            key = series_key(c["title"])
+            if key not in best or (c.get("date") or "") > (self.chunks[best[key]].get("date") or ""):
+                best[key] = cid
+        keep_docs = {self.chunks[cid]["doc_id"] for cid in best.values()}
+        return [cid for cid in order if self.chunks[cid]["doc_id"] in keep_docs]
+
     # --- public API ----------------------------------------------------------------
     def search(self, q: str, k: int = 5, mode: str = "hybrid") -> list[dict]:
         if mode == "vector":
@@ -111,6 +135,10 @@ class Retriever:
                 {"id": c, "text": f"{self.chunks[c]['title']} ({self.chunks[c].get('date') or 'n.d.'})\n{self.chunks[c]['text'][:1200]}"}
                 for c in cand])
             order = [r["id"] for r in self.ranker.rerank(req)] + order[20:]
+
+        # after re-ranking (which ignores dates): for "current/latest" questions, newest version wins
+        if TIME_WORDS.search(q):
+            order = self.newest_in_series(order)
 
         return [self._hit(c, i) for i, c in enumerate(self.dedupe(order, k), 1)]
 

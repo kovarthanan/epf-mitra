@@ -44,7 +44,7 @@ SEEDS = [
 # Internal / staff-only divisions - not useful for members (tune after dry run)
 INCLUDE_DIVISIONS = {
     "pension", "wsu", "edli", "exemption", "compliance", "legal",
-    "international worker", "banking", "caiu", "csd", None,
+    "international worker", "banking", "caiu", "csd","investment", None,
 }
 EXCLUDE_TITLE_KEYWORDS = [
     "recruitment", "probation", "transfer of officer", "posting", "promotion", "apar",
@@ -53,6 +53,7 @@ EXCLUDE_TITLE_KEYWORDS = [
     "sparrow", "training programme", "workshop", "orientation program",
     "productivity linked bonus", "nominations for training", "induction training",
     "training program", "translation officer", "group 'c'", "group 'b'", "group 'a'",
+    "rti act", "supply of information", "holidays to be observed", "record note",
 ]
 MIN_YEAR = 2000
 IGNORE_FILES = {"CitizenCharter.pdf"}
@@ -150,7 +151,7 @@ def parse_plain_links(soup: BeautifulSoup, source_type: str, page_url: str) -> l
             title = h.get_text(" ", strip=True) if h else Path(urlparse(url).path).stem
         items.append({
             "url": url, "title": re.sub(r"\s+", " ", title)[:400],
-            "date": None, "year": None, "month": None, "division": None,
+            "date": to_iso_from_title(title), "year": None, "month": None, "division": None,
             "source_type": source_type, "seed_page": page_url,
         })
     return items
