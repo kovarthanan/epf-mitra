@@ -1,0 +1,110 @@
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">₹</span>
+      <div>
+        <h1>EPF Mitra</h1>
+        <p class="tagline">Answers from official EPFO circulars, with sources</p>
+      </div>
+    </div>
+    @if (meta(); as m) {
+      <div class="chips">
+        @if (m.data_as_of) {
+          <span class="chip" title="Newest EPFO document in the knowledge base">
+            Documents up to {{ m.data_as_of | date: 'd MMM y' }}
+          </span>
+        }
+        <span class="chip" [class.warn]="m.questions_left <= 2">
+          {{ m.questions_left }}/{{ m.daily_limit }} questions left today
+        </span>
+      </div>
+    }
+  </header>
+
+  <main class="chat" #scroller>
+    @if (messages().length === 0) {
+      <section class="welcome">
+        <h2>Ask anything about your PF, pension or EDLI</h2>
+        <p>Every answer cites the EPFO document it comes from and the date of that rule.</p>
+        <div class="examples">
+          @for (q of examples; track q) {
+            <button type="button" class="example" (click)="useExample(q)" [disabled]="loading() || limitReached()">
+              {{ q }}
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    @for (msg of messages(); track $index) {
+      @switch (msg.role) {
+        @case ('user') {
+          <div class="bubble user">{{ msg.text }}</div>
+        }
+        @case ('error') {
+          <div class="bubble error" role="alert">{{ msg.text }}</div>
+        }
+        @case ('bot') {
+          <article class="bubble bot">
+            @for (line of msg.lines; track $index) {
+              <!-- kept on one line on purpose: line breaks here would add spaces before "." after a citation -->
+              <p [class.bullet]="line.bullet">@for (seg of line.segments; track $index) {@switch (seg.kind) {@case ('bold') {<strong>{{ seg.text }}</strong>}@case ('cite') {@if (seg.source; as s) {<a class="cite" [href]="s.url" target="_blank" rel="noopener" [title]="s.title">{{ seg.n }}</a>} @else {<sup>[{{ seg.n }}]</sup>}}@default {{{ seg.text }}}}}</p>
+            }
+
+            @if (msg.response; as r) {
+              <div class="sources">
+                <div class="sources-head">
+                  <span>Sources</span>
+                  <button type="button" class="link" (click)="toggleSources(msg)">
+                    {{ msg.showAllSources ? 'Show cited only' : 'Show all ' + r.sources.length }}
+                  </button>
+                </div>
+                <ol>
+                  @for (s of visibleSources(msg); track s.rank) {
+                    <li [class.cited]="s.cited">
+                      <span class="num">{{ s.rank }}</span>
+                      <div>
+                        <a [href]="s.url" target="_blank" rel="noopener">{{ s.title }}</a>
+                        <div class="src-meta">
+                          {{ s.date ? (s.date | date: 'd MMM y') : 'Date not available' }} · page {{ s.page_start }}
+                          @if (s.ocr) { · scanned copy }
+                        </div>
+                      </div>
+                    </li>
+                  } @empty {
+                    <li class="none">No source was cited for this answer.</li>
+                  }
+                </ol>
+              </div>
+              <div class="stats">₹{{ r.cost_inr.toFixed(3) }} · {{ r.latency_s.total }}s</div>
+            }
+          </article>
+        }
+      }
+    }
+
+    @if (loading()) {
+      <div class="bubble bot thinking" aria-live="polite">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        Searching {{ meta()?.documents ?? '' }} EPFO documents…
+      </div>
+    }
+  </main>
+
+  <footer class="composer">
+    <form (submit)="$event.preventDefault(); send()">
+      <textarea
+        rows="1"
+        maxlength="500"
+        [placeholder]="limitReached() ? 'Daily limit reached. Come back tomorrow.' : 'Ask about PF withdrawal, transfer, pension, KYC…'"
+        [value]="draft()"
+        (input)="draft.set($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+        [disabled]="limitReached()"
+        aria-label="Your question"
+      ></textarea>
+      <button type="submit" [disabled]="!canSend()">Ask</button>
+    </form>
+    <p class="disclaimer">Not official EPFO advice. Rules change; verify on epfindia.gov.in or with your regional PF office.</p>
+  </footer>
+</div>
