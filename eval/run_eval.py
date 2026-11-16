@@ -15,6 +15,7 @@ Usage (from the project root):
     python eval/run_eval.py                    # all 30 questions (~Rs 1 with gpt-4o-mini)
     python eval/run_eval.py --only rate_current trap_car
     python eval/run_eval.py --repeat 3         # 3 runs: average pass rate + flaky questions
+    python eval/run_eval.py --compare          # retrieval-only before/after table (free, no LLM calls)
 
 LLM answers vary slightly between runs even at temperature 0, so one run can mislead.
 With --repeat, a question is "stable" if it passed every run and "flaky" if it passed some.
@@ -52,6 +53,43 @@ class CapturingRetriever:
         return self.last
 
 
+def compare_retrieval(qs: list[dict], k: int):
+    """Before/after table for retrieval only: did an expected source reach the top k?
+    No LLM calls, so it is free and takes about a minute."""
+    with_rerank = Retriever(rerank=True)
+    ranker = with_rerank.ranker
+    configs = [
+        ("Vector only (before)", "vector", None),
+        ("Keyword BM25 only", "keyword", None),
+        ("Hybrid BM25 + vector (RRF)", "hybrid", "off"),
+        ("Hybrid + FlashRank re-rank (after)", "hybrid", "on"),
+    ]
+    scored = [q for q in qs if q["expected_sources"]]
+    results = {}
+    for label, mode, rr in configs:
+        with_rerank.ranker = ranker if rr != "off" else None
+        hits, mrr, misses = 0, 0.0, []
+        for q in scored:
+            res = with_rerank.search(q["question"], k=k, mode=mode)
+            ranks = [h["rank"] for h in res if any_in(q["expected_sources"], h["title"])]
+            if ranks:
+                hits += 1
+                mrr += 1 / min(ranks)
+            else:
+                misses.append(q["id"])
+        results[label] = (hits, mrr / len(scored), misses)
+    with_rerank.ranker = ranker
+
+    lines = [f"## Retrieval comparison ({len(scored)} questions with a known source, top {k})", "",
+             f"| Retriever | Hit@{k} | MRR | Missed |", "|---|---|---|---|"]
+    for label, (hits, mrr, misses) in results.items():
+        lines.append(f"| {label} | {hits}/{len(scored)} ({hits / len(scored):.0%}) | {mrr:.2f} | "
+                     f"{', '.join(misses) or '-'} |")
+    lines += ["", "Hit@k: an expected source document is in the top k. "
+              "MRR: 1/rank of the first correct document, averaged (1.0 = always rank 1)."]
+    return "\n".join(lines)
+
+
 def any_in(needles: list[str], hay: str) -> bool:
     hay = hay.lower()
     return any(n.lower() in hay for n in needles)
@@ -81,6 +119,7 @@ def main():
     ap.add_argument("--only", nargs="*", help="question ids to run")
     ap.add_argument("-k", type=int, default=5)
     ap.add_argument("--repeat", type=int, default=1, help="run the whole set N times")
+    ap.add_argument("--compare", action="store_true", help="retrieval-only before/after table, no LLM calls")
     args = ap.parse_args()
 
     qs = [json.loads(l) for l in QUESTIONS.read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -88,6 +127,12 @@ def main():
         qs = [q for q in qs if q["id"] in set(args.only)]
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    if args.compare:
+        table = compare_retrieval(qs, args.k)
+        path = OUT_DIR / f"retrieval-compare-{datetime.now().strftime('%Y%m%d-%H%M')}.md"
+        path.write_text(table + "\n", encoding="utf-8")
+        print("\n" + table + f"\n\nSaved: {path}")
+        return
     answer_mod.LOG_PATH = OUT_DIR / "query_log_eval.jsonl"  # keep eval traffic out of the real query log
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     out_path = OUT_DIR / f"run-{stamp}.jsonl"
