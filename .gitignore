@@ -5,6 +5,7 @@ data/chroma/
 data/chunks.jsonl
 data/ocr_report.csv
 *.pdf
+eval/results/
 
 # scratch files from site inspection
 inspect.txt

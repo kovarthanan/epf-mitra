@@ -115,17 +115,32 @@ def main():
     files = sorted(Path(args.text).glob("*.json"))
     exclude_path = Path("data/exclude_docs.txt")
     excluded = set(exclude_path.read_text(encoding="utf-8").split()) if exclude_path.exists() else set()
-    total, docs, skipped = 0, 0, 0
+    total, docs = 0, 0
+    skipped_excluded, skipped_not_ocrd, zero_chunks = [], [], []
     with Path(args.out).open("w", encoding="utf-8") as out:
         for f in files:
             d = json.loads(f.read_text(encoding="utf-8"))
             if d["doc_id"] in excluded:
-                skipped += 1
+                skipped_excluded.append(d)
                 continue
             if d.get("likely_scanned") and not d.get("ocr_applied"):
-                skipped += 1
+                skipped_not_ocrd.append(d)
                 continue
             chunks = chunk_pages(d["pages"], args.size, args.overlap)
+            if not chunks:
+                # Short notices (a one-table "Wage Ceiling" sheet) can lose everything to the noise
+                # filter, which drops number-only lines. Keep them as one uncleaned chunk instead.
+                raw = "\n".join(p.get("text", "") for p in d["pages"]).strip()
+                if len(raw) >= 80:
+                    chunks = [{"text": re.sub(r"[ \t]+", " ", raw)[:args.size * 2],
+                               "page_start": d["pages"][0]["page"], "page_end": d["pages"][-1]["page"],
+                               "ocr": any(p.get("ocr") for p in d["pages"]), "raw_fallback": True}]
+            if not chunks:
+                # every line was removed as noise, or what is left is under 80 chars
+                raw_chars = sum(len(p.get("text", "")) for p in d["pages"])
+                kept_chars = sum(len(clean_page(p.get("text", ""))) for p in d["pages"])
+                zero_chunks.append((d, raw_chars, kept_chars))
+                continue
             for i, c in enumerate(chunks):
                 rec = {
                     "chunk_id": f"{d['doc_id']}_{i:03d}",
@@ -140,8 +155,13 @@ def main():
                 }
                 out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             total += len(chunks); docs += 1
-    print(f"{docs} docs -> {total} chunks ({total/max(1,docs):.1f} per doc). "
-          f"Skipped {skipped} scanned docs not yet OCR'd. Output: {args.out}")
+    print(f"{docs} docs -> {total} chunks ({total/max(1,docs):.1f} per doc). Output: {args.out}")
+    print(f"Skipped: {len(skipped_excluded)} excluded (data/exclude_docs.txt), "
+          f"{len(skipped_not_ocrd)} scanned but not OCR'd, {len(zero_chunks)} produced 0 chunks")
+    for d in skipped_not_ocrd:
+        print(f"  NOT OCR'd    {d['doc_id']}  {d['title'][:80]}")
+    for d, raw, kept in zero_chunks:
+        print(f"  0 CHUNKS     {d['doc_id']}  raw={raw} chars, after cleaning={kept}  {d['title'][:70]}")
 
 
 if __name__ == "__main__":
