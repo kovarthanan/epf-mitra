@@ -36,7 +36,7 @@
       </section>
     }
 
-    @for (msg of messages(); track $index) {
+    @for (msg of messages(); track msg.id) {
       @switch (msg.role) {
         @case ('user') {
           <div class="bubble user">{{ msg.text }}</div>
@@ -45,7 +45,7 @@
           <div class="bubble error" role="alert">{{ msg.text }}</div>
         }
         @case ('bot') {
-          <article class="bubble bot">
+          <article class="bubble bot" [class.streaming]="msg.streaming" [attr.aria-busy]="msg.streaming">
             @for (line of msg.lines; track $index) {
               <!-- kept on one line on purpose: line breaks here would add spaces before "." after a citation -->
               <p [class.bullet]="line.bullet">@for (seg of line.segments; track $index) {@switch (seg.kind) {@case ('bold') {<strong>{{ seg.text }}</strong>}@case ('cite') {@if (seg.source; as s) {<a class="cite" [href]="s.url" target="_blank" rel="noopener" [title]="s.title">{{ seg.n }}</a>} @else {<sup>[{{ seg.n }}]</sup>}}@default {{{ seg.text }}}}}</p>
@@ -83,7 +83,7 @@
       }
     }
 
-    @if (loading()) {
+    @if (searching()) {
       <div class="bubble bot thinking" aria-live="polite">
         <span class="dot"></span><span class="dot"></span><span class="dot"></span>
         Searching {{ meta()?.documents ?? '' }} EPFO documents…

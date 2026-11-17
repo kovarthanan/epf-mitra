@@ -94,6 +94,51 @@ def answer(retriever: Retriever, question: str, k: int = 5, model: str = "gpt-4o
         f.write(json.dumps(result, ensure_ascii=False) + "\n")
     return result
 
+def answer_stream(retriever: Retriever, question: str, k: int = 5, model: str = "gpt-4o-mini"):
+    """Same as answer(), but yields events while the LLM writes, for a typing effect in the UI:
+         ("sources", [...])  once, right after retrieval
+         ("token", "text")   many times, as the answer is generated
+         ("done", result)    once, the same dict answer() returns (cited, cost, latency)
+    """
+    t0 = time.time()
+    hits = retriever.search(question, k=k)
+    t_retrieve = time.time() - t0
+    sources = [{k2: h[k2] for k2 in ("rank", "title", "date", "division", "page_start", "url", "ocr")} for h in hits]
+    yield "sources", sources
+
+    stream = client.chat.completions.create(
+        model=model, temperature=0, stream=True, stream_options={"include_usage": True},
+        messages=[{"role": "system", "content": SYSTEM},
+                  {"role": "user", "content": build_prompt(question, hits)}],
+    )
+    parts, usage = [], None
+    for chunk in stream:
+        if chunk.usage:                      # last chunk carries token counts
+            usage = chunk.usage
+        if chunk.choices and chunk.choices[0].delta.content:
+            piece = chunk.choices[0].delta.content
+            parts.append(piece)
+            yield "token", piece
+
+    text = "".join(parts).strip()
+    cited = sorted({int(n) for n in re.findall(r"\[(\d+)\]", text)})
+    result = {
+        "question": question,
+        "answer": text,
+        "sources": sources,
+        "cited": cited,
+        "model": model,
+        "tokens": {"prompt": usage.prompt_tokens if usage else 0,
+                   "completion": usage.completion_tokens if usage else 0},
+        "cost_inr": cost_inr(model, usage) if usage else 0.0,
+        "latency_s": {"retrieve": round(t_retrieve, 2), "total": round(time.time() - t0, 2)},
+        "ts": datetime.now(timezone.utc).isoformat(),
+    }
+    LOG_PATH.parent.mkdir(exist_ok=True)
+    with LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(result, ensure_ascii=False) + "\n")
+    yield "done", result
+
 
 def show(r: dict):
     print(f"\n### {r['question']}\n")

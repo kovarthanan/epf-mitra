@@ -91,6 +91,18 @@ h1 { margin: 0; font-size: 20px; color: var(--navy); }
   &:hover { background: var(--accent); color: #fff; }
 }
 
+/* typing cursor while the answer streams in */
+.bot.streaming > p:last-of-type::after {
+  content: '';
+  display: inline-block;
+  width: 7px; height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--accent);
+  animation: caret 1s steps(1) infinite;
+}
+@keyframes caret { 50% { opacity: 0; } }
+
 /* sources */
 .sources { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .sources-head {
