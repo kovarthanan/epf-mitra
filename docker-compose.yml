@@ -1,0 +1,45 @@
+# EPF Mitra on the VPS, behind the existing Traefik (docker provider, entrypoint websecure,
+# certresolver letsencrypt). Traefik runs on the host network, so no shared network is needed.
+#
+#   https://epf.kovarthanan.tech        -> epf-ui  (Angular + nginx)
+#   https://epf.kovarthanan.tech/api/*  -> epf-api (FastAPI)
+
+services:
+  epf-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    env_file: .env                 # OPENAI_API_KEY, optional DAILY_LIMIT
+    environment:
+      DAILY_LIMIT: ${DAILY_LIMIT:-10}
+    volumes:
+      - ./data:/app/data           # chroma, chunks.jsonl, manifest.jsonl, model caches, query log
+    mem_limit: 2g                  # VPS has no swap: cap it so other apps stay safe
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s           # first start downloads the embedding + re-rank models
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.epf-api.rule=Host(`epf.kovarthanan.tech`) && PathPrefix(`/api`)
+      - traefik.http.routers.epf-api.entrypoints=websecure
+      - traefik.http.routers.epf-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.epf-api.priority=20
+      - traefik.http.services.epf-api.loadbalancer.server.port=8000
+
+  epf-ui:
+    build:
+      context: ui/epf-mitra-ui
+    restart: unless-stopped
+    depends_on:
+      - epf-api
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.epf-ui.rule=Host(`epf.kovarthanan.tech`)
+      - traefik.http.routers.epf-ui.entrypoints=websecure
+      - traefik.http.routers.epf-ui.tls.certresolver=letsencrypt
+      - traefik.http.routers.epf-ui.priority=10
+      - traefik.http.services.epf-ui.loadbalancer.server.port=80

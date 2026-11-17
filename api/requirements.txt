@@ -1,0 +1,9 @@
+# Runtime dependencies of the API container only (ingestion/OCR tools stay on the dev machine)
+fastapi
+uvicorn[standard]
+python-dotenv
+openai
+chromadb
+sentence-transformers
+rank_bm25
+flashrank

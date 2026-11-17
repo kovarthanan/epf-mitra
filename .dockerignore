@@ -1,0 +1,13 @@
+# API image only needs rag/ and api/
+.git
+.env
+data
+eval
+ingest
+tools
+tests
+infra
+docs
+ui
+**/__pycache__
+**/*.pyc
